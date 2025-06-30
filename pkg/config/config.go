@@ -107,22 +107,40 @@ func (c *Config) loadConfig(path string) error {
 	}
 
 	if info.IsDir() {
-		// 递归加载目录中的所有配置文件
-		err := filepath.Walk(path, func(filePath string, fileInfo os.FileInfo, err error) error {
+		// 首先加载主配置文件
+		mainConfigPath := filepath.Join(path, "config.yaml")
+		if err := c.loadConfigFile(mainConfigPath); err != nil {
+			return fmt.Errorf("failed to load main config file: %w", err)
+		}
+
+		// 然后加载 autoload 目录下的配置
+		autoloadPath := filepath.Join(path, "autoload")
+		if _, err := os.Stat(autoloadPath); err == nil {
+			entries, err := os.ReadDir(autoloadPath)
 			if err != nil {
-				log.Printf("Error accessing file %s: %v\n", filePath, err)
-				return nil
+				return fmt.Errorf("failed to read autoload directory: %w", err)
 			}
 
-			// 跳过目录
-			if fileInfo.IsDir() {
-				return nil
-			}
+			// 按字母顺序加载子目录中的配置
+			for _, entry := range entries {
+				if entry.IsDir() {
+					dirPath := filepath.Join(autoloadPath, entry.Name())
+					files, err := os.ReadDir(dirPath)
+					if err != nil {
+						log.Printf("Error reading directory %s: %v\n", dirPath, err)
+						continue
+					}
 
-			return c.loadConfigFile(filePath)
-		})
-		if err != nil {
-			return fmt.Errorf("failed to walk through config directory: %w", err)
+					for _, file := range files {
+						if !file.IsDir() {
+							filePath := filepath.Join(dirPath, file.Name())
+							if err := c.loadConfigFile(filePath); err != nil {
+								log.Printf("Error loading config file %s: %v\n", filePath, err)
+							}
+						}
+					}
+				}
+			}
 		}
 	} else {
 		// 加载单个配置文件
@@ -207,7 +225,7 @@ func (c *Config) replacePlaceholders(content string) string {
 	})
 }
 
-// MergeMap 递归合并配置
+// MergeMap 合并配置映射
 func (c *Config) MergeMap(data map[string]interface{}) {
 	for k, v := range data {
 		if existing, ok := c.data[k]; ok {
@@ -218,17 +236,19 @@ func (c *Config) MergeMap(data map[string]interface{}) {
 	}
 }
 
-// mergeValues 递归合并值
+// mergeValues 合并两个值，支持嵌套的 map 结构
 func mergeValues(existing, new interface{}) interface{} {
 	existingMap, existingOk := existing.(map[string]interface{})
 	newMap, newOk := new.(map[string]interface{})
 
+	// 如果两个值都是 map，则递归合并
 	if existingOk && newOk {
-		// 如果两个值都是map，则递归合并
 		result := make(map[string]interface{})
+		// 复制现有的值
 		for k, v := range existingMap {
 			result[k] = v
 		}
+		// 合并新的值
 		for k, v := range newMap {
 			if existing, ok := result[k]; ok {
 				result[k] = mergeValues(existing, v)
@@ -239,13 +259,36 @@ func mergeValues(existing, new interface{}) interface{} {
 		return result
 	}
 
-	// 如果不是map，则新值覆盖旧值
+	// 如果不是 map，则使用新值覆盖旧值
 	return new
 }
 
-// Get 获取配置值
+// Get 获取指定键的值
 func (c *Config) Get(key string) interface{} {
-	return c.data[key]
+	keys := splitKey(key)
+	current := c.data
+
+	for i, k := range keys {
+		if i == len(keys)-1 {
+			return current[k]
+		}
+		if v, ok := current[k]; ok {
+			if m, ok := v.(map[string]interface{}); ok {
+				current = m
+			} else {
+				return nil
+			}
+		} else {
+			return nil
+		}
+	}
+	return nil
+}
+
+// splitKey 将点分隔的键拆分为切片
+func splitKey(key string) []string {
+	re := regexp.MustCompile(`\.`)
+	return re.Split(key, -1)
 }
 
 // GetString 获取字符串值

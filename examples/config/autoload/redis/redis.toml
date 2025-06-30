@@ -1,5 +1,6 @@
 # Reis标识下的数据
 [redis]
+enable = true
 # Redis 服务器地址列表
 # 对于单机版，只需一个地址；对于主从或集群模式，可以提供多个地址
 addrs = ["${REDIS_HOST:redis_demo}:${REDIS_PORT:6379}"]

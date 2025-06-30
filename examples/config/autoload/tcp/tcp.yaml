@@ -1,4 +1,5 @@
 tcp:
+  enable: true # 是否启用tcp
   address: ":8080" # 地址，默认是:8080
   max_connections: 1000 # 最大连接数
   max_message_size: 1048576 # 最大消息大小 默认1MB

@@ -1,4 +1,5 @@
 telemetry:
+  enable: true # 是否启用追踪
   service:
     name: Taurus-server
     version: v0.1.0

@@ -17,8 +17,10 @@ func main() {
 	}
 
 	// 使用配置
-	log.Printf("Database Host: %s", cfg.GetString("database.host"))
-	log.Printf("Database Port: %d", cfg.GetInt("database.port"))
-	log.Printf("Debug Mode: %v", cfg.GetBool("debug"))
-	log.Printf("API Keys: %v", cfg.GetStringSlice("api.keys"))
+	log.Printf("App Name: %s", cfg.GetString("app_name"))
+	log.Printf("Version: %s", cfg.GetString("version"))
+	log.Printf("HTTP Address: %s", cfg.GetString("http.address"))
+	log.Printf("HTTP Port: %d", cfg.GetInt("http.port"))
+	log.Printf("HTTP Authorization: %s", cfg.GetString("http.authorization"))
+	log.Printf("HTTP Read Timeout: %d", cfg.GetInt("http.read_timeout"))
 }
