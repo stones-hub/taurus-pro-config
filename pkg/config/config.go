@@ -107,40 +107,27 @@ func (c *Config) loadConfig(path string) error {
 	}
 
 	if info.IsDir() {
-		// 首先加载主配置文件
-		mainConfigPath := filepath.Join(path, "config.yaml")
-		if err := c.loadConfigFile(mainConfigPath); err != nil {
-			return fmt.Errorf("failed to load main config file: %w", err)
-		}
-
-		// 然后加载 autoload 目录下的配置
-		autoloadPath := filepath.Join(path, "autoload")
-		if _, err := os.Stat(autoloadPath); err == nil {
-			entries, err := os.ReadDir(autoloadPath)
+		// 递归遍历目录下的所有文件
+		err := filepath.Walk(path, func(filePath string, fileInfo os.FileInfo, err error) error {
 			if err != nil {
-				return fmt.Errorf("failed to read autoload directory: %w", err)
+				log.Printf("Error accessing file %s: %v\n", filePath, err)
+				return nil
 			}
 
-			// 按字母顺序加载子目录中的配置
-			for _, entry := range entries {
-				if entry.IsDir() {
-					dirPath := filepath.Join(autoloadPath, entry.Name())
-					files, err := os.ReadDir(dirPath)
-					if err != nil {
-						log.Printf("Error reading directory %s: %v\n", dirPath, err)
-						continue
-					}
-
-					for _, file := range files {
-						if !file.IsDir() {
-							filePath := filepath.Join(dirPath, file.Name())
-							if err := c.loadConfigFile(filePath); err != nil {
-								log.Printf("Error loading config file %s: %v\n", filePath, err)
-							}
-						}
-					}
-				}
+			// 跳过目录
+			if fileInfo.IsDir() {
+				return nil
 			}
+
+			// 加载配置文件
+			if err := c.loadConfigFile(filePath); err != nil {
+				log.Printf("Error loading config file %s: %v\n", filePath, err)
+			}
+			return nil
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to walk through config directory: %w", err)
 		}
 	} else {
 		// 加载单个配置文件
